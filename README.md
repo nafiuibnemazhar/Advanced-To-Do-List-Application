@@ -148,11 +148,6 @@ $conn = new mysqli($servername, $username, $password, $dbname);
 
 <hr />
 
-<h2>License</h2>
-<p>
-Optionally include a license here. For instance:
-</p>
-
 
 </body>
 </html>
