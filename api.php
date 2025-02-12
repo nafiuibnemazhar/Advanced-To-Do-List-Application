@@ -1,12 +1,11 @@
 <?php
-
 require 'db.php';
 
 header('Content-Type: application/json');
 
 session_start();
 
-//user login
+// User login
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
     $username = $_POST['username'];
     $password = $_POST['password'];
@@ -24,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit();
 }
 
-//user registration
+// User registration
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register') {
     $username = $_POST['username'];
     $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
@@ -38,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit();
 }
 
-// check if user is logged in
+// Check if user is logged in
 if (! isset($_SESSION['user_id'])) {
     echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
     exit();
@@ -46,14 +45,16 @@ if (! isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-//Add a new task
+// Add a new task
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
     $task     = $_POST['task'];
     $due_date = $_POST['due_date'];
     $category = $_POST['category'];
-    $stmt     = $conn->prepare("INSERT INTO tasks (tasks, due_date, category, user_id) VALUES (?, ?, ?, ?)");
+    $stmt     = $conn->prepare("INSERT INTO tasks (task, due_date, category, user_id) VALUES (?, ?, ?, ?)");
     $stmt->bind_param("sssi", $task, $due_date, $category, $user_id);
     $stmt->execute();
+    echo json_encode(['status' => 'success', 'id' => $stmt->insert_id]);
+    exit();
 }
 
 // Fetch all tasks for the logged-in user
@@ -68,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
 }
 
 // Delete a task
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) & $_POST['action'] === 'delete') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
     $id   = $_POST['id'];
     $stmt = $conn->prepare("DELETE FROM tasks WHERE id = ? AND user_id = ?");
     $stmt->bind_param("ii", $id, $user_id);
