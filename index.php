@@ -53,6 +53,27 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
+    // Register
+    $('#show-register').click(function() {
+        let username = prompt("Enter a username:");
+        let password = prompt("Enter a password:");
+        if (username && password) {
+            $.post('api.php', {
+                action: 'register',
+                username: username,
+                password: password
+            }, function(response) {
+                if (response.status === 'success') {
+                    alert(response.message || "Registration successful! Please login.");
+                } else {
+                    alert(response.message || "Registration failed. Please try again.");
+                }
+            }).fail(function() {
+                alert("An error occurred. Please try again.");
+            });
+        }
+    });
+
     // Login
     $('#login-form').submit(function(e) {
         e.preventDefault();
@@ -68,54 +89,57 @@
                 $('#todo-section').show();
                 fetchTasks();
             } else {
-                alert(response.message);
+                alert(response.message || "Invalid credentials.");
             }
+        }).fail(function() {
+            alert("An error occurred. Please try again.");
         });
-    });
-
-    // Register
-    $('#show-register').click(function() {
-        let username = prompt("Enter a username:");
-        let password = prompt("Enter a password:");
-        if (username && password) {
-            $.post('api.php', {
-                action: 'register',
-                username: username,
-                password: password
-            }, function(response) {
-                if (response.status === 'success') {
-                    alert("Registration successful! Please login.");
-                } else {
-                    alert(response.message);
-                }
-            });
-        }
     });
 
     // Fetch and display tasks
     function fetchTasks() {
-        let search = $('#search-input').val();
-        let category = $('#filter-category').val();
-        $.get('api.php', {
-            action: 'search',
-            search: search,
-            category: category
-        }, function(data) {
-            let tasks = JSON.parse(data);
-            let taskList = $('#task-list');
-            taskList.empty();
-            tasks.forEach(task => {
-                let taskItem = $(`
-                        <div class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
-                            <span>${task.task} (${task.category}) - Due: ${task.due_date}</span>
-                            <div class="task-actions">
-                                <input type="checkbox" class="form-check-input toggle-task" ${task.completed ? 'checked' : ''}>
-                                <button class="btn btn-danger btn-sm delete-task">Delete</button>
-                            </div>
-                        </div>
-                    `);
-                taskList.append(taskItem);
-            });
+        let searchValue = $('#search-input').val() || '';
+        let categoryValue = $('#filter-category').val() || '';
+
+        $.ajax({
+            url: 'api.php',
+            method: 'GET',
+            dataType: 'json',
+            data: {
+                action: 'search', // <--- use "search" not "fetch"
+                search: searchValue,
+                category: categoryValue
+            },
+            success: function(tasks) {
+                renderTasks(tasks);
+            },
+            error: function() {
+                alert('Failed to fetch tasks.');
+            }
+        });
+    }
+
+    // Re‐render tasks
+    function renderTasks(tasks) {
+        let taskList = $('#task-list');
+        taskList.empty();
+
+        tasks.forEach(task => {
+            // Convert it to an integer or boolean first.
+            // e.g., in JSON, sometimes 'completed' might be returned as a string.
+            let isCompleted = (parseInt(task.completed) === 1);
+
+            let taskItem = $(`
+        <div class="task-item ${isCompleted ? 'completed' : ''}" data-id="${task.id}">
+            <span>${task.task} (${task.category}) - Due: ${task.due_date}</span>
+            <div class="task-actions">
+                <input type="checkbox" class="form-check-input toggle-task"
+                       ${isCompleted ? 'checked' : ''}>
+                <button class="btn btn-danger btn-sm delete-task">Delete</button>
+            </div>
+        </div>
+    `);
+            taskList.append(taskItem);
         });
     }
 
@@ -131,10 +155,16 @@
             due_date: due_date,
             category: category
         }, function(response) {
-            fetchTasks();
-            $('#task-input').val('');
-            $('#due-date').val('');
-            $('#category').val('');
+            if (response.status === 'success') {
+                fetchTasks();
+                $('#task-input').val('');
+                $('#due-date').val('');
+                $('#category').val('');
+            } else {
+                alert(response.message || "Failed to add task.");
+            }
+        }).fail(function() {
+            alert("An error occurred. Please try again.");
         });
     });
 
@@ -145,7 +175,13 @@
             action: 'delete',
             id: taskId
         }, function(response) {
-            fetchTasks();
+            if (response.status === 'success') {
+                fetchTasks();
+            } else {
+                alert(response.message || "Failed to delete task.");
+            }
+        }).fail(function() {
+            alert("An error occurred. Please try again.");
         });
     });
 
@@ -153,17 +189,37 @@
     $(document).on('change', '.toggle-task', function() {
         let taskId = $(this).closest('.task-item').data('id');
         let completed = $(this).is(':checked') ? 1 : 0;
+
+        console.log("TOGGLE:", {
+            taskId,
+            completed
+        }); // Add this for debugging
+
         $.post('api.php', {
             action: 'toggle',
             id: taskId,
             completed: completed
         }, function(response) {
-            fetchTasks();
+            console.log("RESPONSE:", response); // Another debug print
+
+            if (response.status === 'success') {
+                fetchTasks();
+            } else {
+                alert(response.message || "Failed to toggle task.");
+            }
+        }).fail(function() {
+            alert("An error occurred. Please try again.");
         });
     });
 
+
     // Search and filter tasks
     $('#search-input, #filter-category').on('input change', function() {
+        fetchTasks();
+    });
+
+    // Initial fetch
+    $(document).ready(function() {
         fetchTasks();
     });
     </script>

@@ -10,6 +10,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $username = $_POST['username'];
     $password = $_POST['password'];
     $stmt     = $conn->prepare("SELECT id, password FROM users WHERE username = ?");
+    if (! $stmt) {
+        die("Prepare failed: " . $conn->error);
+    }
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $stmt->store_result();
@@ -27,12 +30,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register') {
     $username = $_POST['username'];
     $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
-    $stmt     = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
-    $stmt->bind_param("ss", $username, $password);
-    if ($stmt->execute()) {
-        echo json_encode(['status' => 'success']);
+
+    // Check if the username already exists
+    $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
+    if (! $stmt) {
+        die("Prepare failed: " . $conn->error);
+    }
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $stmt->store_result();
+
+    if ($stmt->num_rows > 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Username already exists']);
     } else {
-        echo json_encode(['status' => 'error', 'message' => 'Registration failed']);
+        // Insert new user
+        $stmt = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+        if (! $stmt) {
+            die("Prepare failed: " . $conn->error);
+        }
+        $stmt->bind_param("ss", $username, $password);
+        if ($stmt->execute()) {
+            echo json_encode(['status' => 'success', 'message' => 'Registration successful']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Registration failed: ' . $stmt->error]);
+        }
     }
     exit();
 }
@@ -51,16 +72,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $due_date = $_POST['due_date'];
     $category = $_POST['category'];
     $stmt     = $conn->prepare("INSERT INTO tasks (task, due_date, category, user_id) VALUES (?, ?, ?, ?)");
+    if (! $stmt) {
+        die("Prepare failed: " . $conn->error);
+    }
     $stmt->bind_param("sssi", $task, $due_date, $category, $user_id);
-    $stmt->execute();
-    echo json_encode(['status' => 'success', 'id' => $stmt->insert_id]);
+    if ($stmt->execute()) {
+        echo json_encode(['status' => 'success', 'id' => $stmt->insert_id]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Failed to add task: ' . $stmt->error]);
+    }
     exit();
 }
 
 // Fetch all tasks for the logged-in user
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'fetch') {
-    $result = $conn->query("SELECT * FROM tasks WHERE user_id = $user_id");
-    $tasks  = [];
+    $user_id = $_SESSION['user_id'];
+    $result  = $conn->query("SELECT * FROM tasks WHERE user_id = $user_id");
+    if (! $result) {
+        die("Query failed: " . $conn->error);
+    }
+    $tasks = [];
     while ($row = $result->fetch_assoc()) {
         $tasks[] = $row;
     }
@@ -72,21 +103,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
     $id   = $_POST['id'];
     $stmt = $conn->prepare("DELETE FROM tasks WHERE id = ? AND user_id = ?");
+    if (! $stmt) {
+        die("Prepare failed: " . $conn->error);
+    }
     $stmt->bind_param("ii", $id, $user_id);
-    $stmt->execute();
-    echo json_encode(['status' => 'success']);
+    if ($stmt->execute()) {
+        echo json_encode(['status' => 'success']);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Failed to delete task: ' . $stmt->error]);
+    }
     exit();
 }
 
-// Toggle task completion
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'toggle') {
-    $id        = $_POST['id'];
+//toggle a task
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['action']) && $_POST['action'] === 'toggle') {
+    $id = $_POST['id'];
+
+    // This should become 1 if $_POST['completed'] == '1'
     $completed = $_POST['completed'] ? 1 : 0;
-    $stmt      = $conn->prepare("UPDATE tasks SET completed = ? WHERE id = ? AND user_id = ?");
-    $stmt->bind_param("iii", $completed, $id, $user_id);
+
+    // or safer:
+    // $completed = $_POST['completed'] === '1' ? 1 : 0;
+
+    $stmt = $conn->prepare("UPDATE tasks SET completed = ? WHERE id = ? AND user_id = ?");
+    $stmt->bind_param("iii", $completed, $id, $_SESSION['user_id']);
     $stmt->execute();
-    echo json_encode(['status' => 'success']);
-    exit();
+
+    if ($stmt->affected_rows >= 0) {
+        echo json_encode(['status' => 'success']);
+    } else {
+        echo json_encode([
+            'status'  => 'error',
+            'message' => 'Failed to toggle task: ' . $stmt->error,
+        ]);
+    }
+    exit;
 }
 
 // Search and filter tasks
@@ -101,7 +154,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
         $query .= " AND category = '$category'";
     }
     $result = $conn->query($query);
-    $tasks  = [];
+    if (! $result) {
+        die("Query failed: " . $conn->error);
+    }
+    $tasks = [];
     while ($row = $result->fetch_assoc()) {
         $tasks[] = $row;
     }
