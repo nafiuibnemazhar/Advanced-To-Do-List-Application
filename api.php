@@ -87,3 +87,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     echo json_encode(['status' => 'success']);
     exit();
 }
+
+// Search and filter tasks
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'search') {
+    $search   = $_GET['search'];
+    $category = $_GET['category'];
+    $query    = "SELECT * FROM tasks WHERE user_id = $user_id";
+    if (! empty($search)) {
+        $query .= " AND task LIKE '%$search%'";
+    }
+    if (! empty($category)) {
+        $query .= " AND category = '$category'";
+    }
+    $result = $conn->query($query);
+    $tasks  = [];
+    while ($row = $result->fetch_assoc()) {
+        $tasks[] = $row;
+    }
+    echo json_encode($tasks);
+    exit();
+}
