@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced To-Do List</title>
-    <link rel="stylesheet" href="style.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
@@ -14,7 +14,7 @@
         <!-- Login/Register Form -->
         <div id="auth-section">
             <h2 class="text-center mb-4">Login or Register</h2>
-            <form id="login=form" class="mb-3">
+            <form id="login-form" class="mb-3">
                 <input type="text" id="username" class="form-control mb-2" placeholder="Username" required>
                 <input type="password" id="password" class="form-control mb-2" placeholder="Password" required>
                 <button type="submit" class="btn btn-primary w-100">Login</button>
@@ -23,7 +23,7 @@
         </div>
 
         <!-- To-Do List (Hidden by Default) -->
-        <div id="todo-section" style="display:none;">
+        <div id="todo-section" style="display: none;">
             <h1 class="text-center mb-4">Advanced To-Do List</h1>
             <form id="add-task-form" class="mb-4">
                 <div class="input-group mb-2">
@@ -50,6 +50,7 @@
             <div id="task-list"></div>
         </div>
     </div>
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
     // Login
@@ -92,6 +93,79 @@
     });
 
     // Fetch and display tasks
+    function fetchTasks() {
+        let search = $('#search-input').val();
+        let category = $('#filter-category').val();
+        $.get('api.php', {
+            action: 'search',
+            search: search,
+            category: category
+        }, function(data) {
+            let tasks = JSON.parse(data);
+            let taskList = $('#task-list');
+            taskList.empty();
+            tasks.forEach(task => {
+                let taskItem = $(`
+                        <div class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
+                            <span>${task.task} (${task.category}) - Due: ${task.due_date}</span>
+                            <div class="task-actions">
+                                <input type="checkbox" class="form-check-input toggle-task" ${task.completed ? 'checked' : ''}>
+                                <button class="btn btn-danger btn-sm delete-task">Delete</button>
+                            </div>
+                        </div>
+                    `);
+                taskList.append(taskItem);
+            });
+        });
+    }
+
+    // Add a new task
+    $('#add-task-form').submit(function(e) {
+        e.preventDefault();
+        let task = $('#task-input').val();
+        let due_date = $('#due-date').val();
+        let category = $('#category').val();
+        $.post('api.php', {
+            action: 'add',
+            task: task,
+            due_date: due_date,
+            category: category
+        }, function(response) {
+            fetchTasks();
+            $('#task-input').val('');
+            $('#due-date').val('');
+            $('#category').val('');
+        });
+    });
+
+    // Delete a task
+    $(document).on('click', '.delete-task', function() {
+        let taskId = $(this).closest('.task-item').data('id');
+        $.post('api.php', {
+            action: 'delete',
+            id: taskId
+        }, function(response) {
+            fetchTasks();
+        });
+    });
+
+    // Toggle task completion
+    $(document).on('change', '.toggle-task', function() {
+        let taskId = $(this).closest('.task-item').data('id');
+        let completed = $(this).is(':checked') ? 1 : 0;
+        $.post('api.php', {
+            action: 'toggle',
+            id: taskId,
+            completed: completed
+        }, function(response) {
+            fetchTasks();
+        });
+    });
+
+    // Search and filter tasks
+    $('#search-input, #filter-category').on('input change', function() {
+        fetchTasks();
+    });
     </script>
 </body>
 
