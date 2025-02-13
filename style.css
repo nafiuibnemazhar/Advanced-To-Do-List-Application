@@ -1,6 +1,7 @@
 /* General Styles */
 body {
-  font-family: "Arial", sans-serif;
+  font-family: "Trebuchet MS", "Lucida Sans Unicode", "Lucida Grande",
+    "Lucida Sans", Arial, sans-serif;
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: #fff;
   min-height: 100vh;
