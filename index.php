@@ -24,7 +24,7 @@
 
         <!-- To-Do List (Hidden by Default) -->
         <div id="todo-section" style="display: none;">
-            <h1 class="text-center mb-4">Advanced To-Do List</h1>
+            <h1 class="text-center mb-4">My Personal To-Do List</h1>
             <form id="add-task-form" class="mb-4">
                 <div class="input-group mb-2">
                     <input type="text" id="task-input" class="form-control" placeholder="Add a new task" required>
